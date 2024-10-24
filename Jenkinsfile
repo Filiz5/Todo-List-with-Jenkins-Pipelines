@@ -17,8 +17,10 @@ pipeline {
                 sh "aws ec2 delete-key-pair --region ${AWS_REGION} --key-name ${ANS_KEYPAIR} || true"
                 
                 // Key pair oluştur ve dosyayı güvenli bir şekilde kaydet
-                sh "aws ec2 create-key-pair --region ${AWS_REGION} --key-name ${ANS_KEYPAIR} --query KeyMaterial --output text > ${WORKSPACE}/${ANS_KEYPAIR}.pem"
-                sh "chmod 400 ${WORKSPACE}/${ANS_KEYPAIR}.pem"
+                sh """
+                aws ec2 create-key-pair --region ${AWS_REGION} --key-name ${ANS_KEYPAIR} --query KeyMaterial --output text > ${WORKSPACE}/${ANS_KEYPAIR}.pem
+                chmod 400 ${WORKSPACE}/${ANS_KEYPAIR}.pem
+                """
             }
         }
 
@@ -49,6 +51,9 @@ pipeline {
                 echo 'Building App Image'
                 script {
                     env.NODE_IP = sh(script: 'terraform output -raw node_public_ip', returnStdout:true).trim()
+                    if (!env.NODE_IP) {
+                        error "Node IP could not be retrieved."
+                    }
                 }
                 sh 'echo ${NODE_IP}'
                 sh 'echo "REACT_APP_BASE_URL=http://${NODE_IP}:5000/" > ./react/client/.env'
@@ -75,6 +80,9 @@ pipeline {
                 script {
                     echo 'Waiting for the instance'
                     id = sh(script: 'aws ec2 describe-instances --filters Name=tag-value,Values=jenkins_project Name=instance-state-name,Values=running --query Reservations[*].Instances[*].[InstanceId] --output text',  returnStdout:true).trim()
+                    if (!id) {
+                        error "No instance found or running."
+                    }
                     sh 'aws ec2 wait instance-status-ok --instance-ids $id'
                 }
             }
@@ -85,6 +93,12 @@ pipeline {
                 echo 'Deploy the App'
                 sh 'ls -l'
                 sh 'ansible --version'
+                script {
+                    def inventoryExists = fileExists("${WORKSPACE}/inventory_aws_ec2.yml")
+                    if (!inventoryExists) {
+                        error "Ansible inventory file not found!"
+                    }
+                }
                 sh 'ansible-inventory -i inventory_aws_ec2.yml --graph'
                 sh """
                     export ANSIBLE_PRIVATE_KEY_FILE="${WORKSPACE}/${ANS_KEYPAIR}.pem"
@@ -100,14 +114,14 @@ pipeline {
                     input message:'Approve terminate'
                 }
                 sh """
-                docker image prune -af
-                terraform destroy --auto-approve
+                docker image prune -af || true
+                terraform destroy --auto-approve || true
                 aws ecr delete-repository \
                   --repository-name ${APP_REPO_NAME} \
                   --region ${AWS_REGION} \
-                  --force
-                aws ec2 delete-key-pair --region ${AWS_REGION} --key-name ${ANS_KEYPAIR}
-                rm -rf ${WORKSPACE}/${ANS_KEYPAIR}.pem
+                  --force || true
+                aws ec2 delete-key-pair --region ${AWS_REGION} --key-name ${ANS_KEYPAIR} || true
+                rm -rf ${WORKSPACE}/${ANS_KEYPAIR}.pem || true
                 """
             }
         }
@@ -116,7 +130,7 @@ pipeline {
     post {
         always {
             echo 'Deleting all local images'
-            sh 'docker image prune -af'
+            sh 'docker image prune -af || true'
         }
         failure {
             echo 'Delete the Image Repository on ECR due to the Failure'
@@ -127,11 +141,11 @@ pipeline {
                   --force || true
             """
             sh """
-                aws ec2 delete-key-pair --region ${AWS_REGION} --key-name ${ANS_KEYPAIR}
-                rm -rf ${WORKSPACE}/${ANS_KEYPAIR}.pem
+                aws ec2 delete-key-pair --region ${AWS_REGION} --key-name ${ANS_KEYPAIR} || true
+                rm -rf ${WORKSPACE}/${ANS_KEYPAIR}.pem || true
             """
             echo 'Deleting Terraform Stack due to the Failure'
-            sh 'terraform destroy --auto-approve'
+            sh 'terraform destroy --auto-approve || true'
         }
     }
 }
