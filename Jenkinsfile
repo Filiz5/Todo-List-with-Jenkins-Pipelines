@@ -67,7 +67,7 @@ pipeline {
                 """
                 
                 // NodeJS Docker image build (düzeltilmiş yol)
-                sh 'docker build --force-rm -t "$ECR_REGISTRY/$APP_REPO_NAME:nodejs" -f ./nodejs/server/Dockerfile ./nodejs/server'
+                sh 'docker build --force-rm -t "$ECR_REGISTRY/$APP_REPO_NAME:nodejs" -f ./nodejs/Dockerfile ./nodejs'
                 
                 // React Docker image build
                 sh 'docker build --force-rm -t "$ECR_REGISTRY/$APP_REPO_NAME:react" -f ./react/dockerfile-react .'
