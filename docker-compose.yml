@@ -1,0 +1,47 @@
+version: "3.7"
+services:
+    todo_postgre:
+        image: "244392073887.dkr.ecr.us-east-1.amazonaws.com/techpro-repo/todo-app:postgr"
+        environment:
+            POSTGRES_PASSWORD: Pp123456789
+        networks:
+            - todonet
+        ports:
+            - "5432:5432"
+        volumes:
+            - todovol:/var/lib/postgresql/data
+    todo_react:
+        image: "244392073887.dkr.ecr.us-east-1.amazonaws.com/techpro-repo/todo-app:react"
+        restart: always
+        # environment:
+        #     REACT_APP_BASE_URL: http://${NODE_IP}:5000/
+        depends_on:
+            - todo_node
+            - todo_postgre
+        ports:
+            - "3000:3000"
+        networks:
+            - todonet
+    todo_node:
+        image: "244392073887.dkr.ecr.us-east-1.amazonaws.com/techpro-repo/todo-app:nodejs"
+        restart: always
+        environment:
+            SERVER_PORT: 5000
+            DB_USER: postgres
+            DB_PASSWORD: Pp123456789
+            DB_NAME: techprotodo
+            DB_HOST: todo_postgre
+            DB_PORT: 5432
+        depends_on:
+            - todo_postgre
+        ports:
+            - "5000:5000"
+        networks:
+            - todonet
+
+networks:
+    todonet:
+        driver: bridge
+
+volumes:
+    todovol:
