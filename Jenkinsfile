@@ -58,7 +58,7 @@ pipeline {
                 sh 'echo ${NODE_IP}'
                 sh 'echo "REACT_APP_BASE_URL=http://${NODE_IP}:5000/" > ./react/client/.env'
                 sh 'cat ./react/client/.env'
-                
+
                 // PostgreSQL Docker image build
                 sh """
                 if [ -f ./postgresql/init.sql ]; then
