@@ -1,4 +1,4 @@
-- name: install docker, docker compose and application deploy.
+- name: install docker, docker compose and application deploy
   hosts: _jenkins_project
   become: true
   vars: 
@@ -46,7 +46,6 @@
       ansible.builtin.yum:
         name: docker
         state: latest
-
 
     - name: Add user ec2-user to docker group
       ansible.builtin.user:
