@@ -4,16 +4,19 @@ FROM node:14
 WORKDIR /usr/src/app
 
 # Copy package.json and package-lock.json
-COPY ./server/package*.json ./
+COPY ./package*.json ./
 
-# Install dependencies including nodemon
+# Install dependencies
 RUN npm install
+
+# Install nodemon globally
 RUN npm install -g nodemon
 
-# Copy all files into the image
-COPY ./server/ .
+# Copy all application files from the server directory
+COPY . .
 
+# Expose the server port
 EXPOSE 5000
 
-# Use nodemon to run the app
-CMD ["npx", "nodemon", "index.js"]  # nodemon ile uygulamayı başlatın
+# Start the server with nodemon
+CMD ["nodemon", "app.js"]
