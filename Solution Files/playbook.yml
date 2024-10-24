@@ -1,0 +1,82 @@
+- name: install docker, docker compose and application deploy.
+  hosts: _jenkins_project
+  become: true
+  vars: 
+    aws_region: us-east-1
+    aws_account_id: ""
+    ecr_registry: "{{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com"
+  tasks:
+    - name: update all packages
+      ansible.builtin.yum:
+        name: '*'
+        state: latest 
+
+    - name: Getting AWS account id
+      shell: aws sts get-caller-identity --query 'Account' --output text
+      register: account_id
+
+    - name: Assigning AWS account id to variable
+      set_fact:
+        aws_account_id: "{{ account_id.stdout }}"
+
+    - name: Remove docker if installed from CentOS repo
+      ansible.builtin.yum:
+        name:
+          - docker
+          - docker-client
+          - docker-client-latest
+          - docker-common
+          - docker-latest
+          - docker-latest-logrotate
+          - docker-logrotate
+          - docker-engine
+        state: removed
+
+    - name: Install yum utils
+      ansible.builtin.yum:
+        name: "{{ item }}"
+        state: latest
+      with_items:
+        - yum-utils
+        - device-mapper-persistent-data
+        - lvm2
+        - unzip
+
+    - name: Install Docker
+      ansible.builtin.yum:
+        name: docker
+        state: latest
+
+
+    - name: Add user ec2-user to docker group
+      ansible.builtin.user:
+        name: ec2-user
+        groups: docker
+        append: yes  
+        
+    - name: Start Docker service
+      ansible.builtin.service:
+        name: docker
+        state: started
+        enabled: yes 
+
+    - name: install Docker-Compose
+      shell: |
+          curl -SL https://github.com/docker/compose/releases/download/v2.24.7/docker-compose-linux-x86_64 -o /usr/local/bin/docker-compose
+          chmod +x /usr/local/bin/docker-compose
+
+    - name: log in to AWS ECR
+      ansible.builtin.shell: |
+        export PATH=/usr/local/bin:$PATH
+        source ~/.bash_profile
+        aws ecr get-login-password --region {{ aws_region }} | docker login --username AWS --password-stdin {{ ecr_registry }}   
+
+    - name: Copy docker-compose.yml to the server
+      copy:
+        src: "{{ compose_dir }}/docker-compose.yml"
+        dest: /home/ec2-user/docker-compose.yml
+        
+    - name: Start Docker Compose
+      command: docker-compose up -d
+      args:
+        chdir: /home/ec2-user/
