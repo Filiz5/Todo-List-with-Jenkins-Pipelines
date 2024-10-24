@@ -1,7 +1,7 @@
 version: "3.7"
 services:
     todo_postgre:
-        image: "244392073887.dkr.ecr.us-east-1.amazonaws.com/techpro-repo/todo-app:postgr"
+        image: "975049995227.dkr.ecr.us-east-1.amazonaws.com/techpro-repo/todo-app:postgr"
         environment:
             POSTGRES_PASSWORD: Pp123456789
         networks:
@@ -11,7 +11,7 @@ services:
         volumes:
             - todovol:/var/lib/postgresql/data
     todo_react:
-        image: "244392073887.dkr.ecr.us-east-1.amazonaws.com/techpro-repo/todo-app:react"
+        image: "975049995227.dkr.ecr.us-east-1.amazonaws.com/techpro-repo/todo-app:react"
         restart: always
         # environment:
         #     REACT_APP_BASE_URL: http://${NODE_IP}:5000/
@@ -23,7 +23,7 @@ services:
         networks:
             - todonet
     todo_node:
-        image: "244392073887.dkr.ecr.us-east-1.amazonaws.com/techpro-repo/todo-app:nodejs"
+        image: "975049995227.dkr.ecr.us-east-1.amazonaws.com/techpro-repo/todo-app:nodejs"
         restart: always
         environment:
             SERVER_PORT: 5000
