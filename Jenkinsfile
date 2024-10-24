@@ -13,10 +13,7 @@ pipeline {
         stage('Create Key Pair for Ansible') {
             steps {
                 echo "Creating Key Pair for ${APP_NAME} App"
-                // Eğer anahtar çifti zaten varsa, önce silin
                 sh "aws ec2 delete-key-pair --region ${AWS_REGION} --key-name ${ANS_KEYPAIR} || true"
-                
-                // Key pair oluştur ve dosyayı güvenli bir şekilde kaydet
                 sh """
                 aws ec2 create-key-pair --region ${AWS_REGION} --key-name ${ANS_KEYPAIR} --query KeyMaterial --output text > ${WORKSPACE}/${ANS_KEYPAIR}.pem
                 chmod 400 ${WORKSPACE}/${ANS_KEYPAIR}.pem
@@ -70,7 +67,7 @@ pipeline {
                 """
                 
                 // NodeJS ve React için Docker image build
-                sh 'docker build --force-rm -t "$ECR_REGISTRY/$APP_REPO_NAME:nodejs" -f ./nodejs/dockerfile-nodejs .'
+                sh 'docker build --force-rm -t "$ECR_REGISTRY/$APP_REPO_NAME:nodejs" -f ./nodejs/Dockerfile .' // Düzeltildi
                 sh 'docker build --force-rm -t "$ECR_REGISTRY/$APP_REPO_NAME:react" -f ./react/dockerfile-react .'
                 sh 'docker image ls'
             }
