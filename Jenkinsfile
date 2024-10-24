@@ -13,8 +13,12 @@ pipeline {
         stage('Create Key Pair for Ansible') {
             steps {
                 echo "Creating Key Pair for ${APP_NAME} App"
-                sh "aws ec2 create-key-pair --region ${AWS_REGION} --key-name ${ANS_KEYPAIR} --query KeyMaterial --output text > ${ANS_KEYPAIR}"
-                sh "chmod 400 ${ANS_KEYPAIR}"
+                // Eğer anahtar çifti zaten varsa, önce silin
+                sh "aws ec2 delete-key-pair --region ${AWS_REGION} --key-name ${ANS_KEYPAIR} || true"
+                
+                // Key pair oluştur ve dosyayı güvenli bir şekilde kaydet
+                sh "aws ec2 create-key-pair --region ${AWS_REGION} --key-name ${ANS_KEYPAIR} --query KeyMaterial --output text > ${WORKSPACE}/${ANS_KEYPAIR}.pem"
+                sh "chmod 400 ${WORKSPACE}/${ANS_KEYPAIR}.pem"
             }
         }
 
@@ -39,7 +43,6 @@ pipeline {
                 """
             }
         }
-
 
         stage('Build App Docker Image') {
             steps {
@@ -67,8 +70,7 @@ pipeline {
             }
         }
 
-
-        stage('wait the instance') {
+        stage('Wait for the EC2 Instance') {
             steps {
                 script {
                     echo 'Waiting for the instance'
@@ -78,8 +80,6 @@ pipeline {
             }
         }
 
-
-
         stage('Deploy the App') {
             steps {
                 echo 'Deploy the App'
@@ -87,16 +87,15 @@ pipeline {
                 sh 'ansible --version'
                 sh 'ansible-inventory -i inventory_aws_ec2.yml --graph'
                 sh """
-                    export ANSIBLE_PRIVATE_KEY_FILE="${WORKSPACE}/${ANS_KEYPAIR}"
+                    export ANSIBLE_PRIVATE_KEY_FILE="${WORKSPACE}/${ANS_KEYPAIR}.pem"
                     export ANSIBLE_HOST_KEY_CHECKING=False
                     ansible-playbook -i ./inventory_aws_ec2.yml -e "compose_dir=${env.WORKSPACE}" ./playbook.yml
                 """
              }
         }
 
-
-        stage('Destroy the infrastructure'){
-            steps{
+        stage('Destroy the infrastructure') {
+            steps {
                 timeout(time:5, unit:'DAYS'){
                     input message:'Approve terminate'
                 }
@@ -108,11 +107,10 @@ pipeline {
                   --region ${AWS_REGION} \
                   --force
                 aws ec2 delete-key-pair --region ${AWS_REGION} --key-name ${ANS_KEYPAIR}
-                rm -rf ${ANS_KEYPAIR}
+                rm -rf ${WORKSPACE}/${ANS_KEYPAIR}.pem
                 """
             }
         }
-
     }
 
     post {
@@ -121,24 +119,19 @@ pipeline {
             sh 'docker image prune -af'
         }
         failure {
-
             echo 'Delete the Image Repository on ECR due to the Failure'
             sh """
                 aws ecr delete-repository \
                   --repository-name ${APP_REPO_NAME} \
-                  --region ${AWS_REGION}\
-                  --force
-                """
+                  --region ${AWS_REGION} \
+                  --force || true
+            """
             sh """
                 aws ec2 delete-key-pair --region ${AWS_REGION} --key-name ${ANS_KEYPAIR}
-                rm -rf ${ANS_KEYPAIR}
-                """
+                rm -rf ${WORKSPACE}/${ANS_KEYPAIR}.pem
+            """
             echo 'Deleting Terraform Stack due to the Failure'
-                sh 'terraform destroy --auto-approve'
+            sh 'terraform destroy --auto-approve'
         }
     }
-
-
-    }
-
-
+}
