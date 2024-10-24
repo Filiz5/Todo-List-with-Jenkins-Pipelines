@@ -58,7 +58,18 @@ pipeline {
                 sh 'echo ${NODE_IP}'
                 sh 'echo "REACT_APP_BASE_URL=http://${NODE_IP}:5000/" > ./react/client/.env'
                 sh 'cat ./react/client/.env'
-                sh 'docker build --force-rm -t "$ECR_REGISTRY/$APP_REPO_NAME:postgr" -f ./postgresql/Dockerfile .'
+                
+                // PostgreSQL Docker image build
+                sh """
+                if [ -f ./postgresql/init.sql ]; then
+                    docker build --force-rm -t "$ECR_REGISTRY/$APP_REPO_NAME:postgr" -f ./postgresql/Dockerfile ./postgresql
+                else
+                    echo "init.sql file is missing, aborting build."
+                    exit 1
+                fi
+                """
+                
+                // NodeJS ve React için Docker image build
                 sh 'docker build --force-rm -t "$ECR_REGISTRY/$APP_REPO_NAME:nodejs" -f ./nodejs/dockerfile-nodejs .'
                 sh 'docker build --force-rm -t "$ECR_REGISTRY/$APP_REPO_NAME:react" -f ./react/dockerfile-react .'
                 sh 'docker image ls'
